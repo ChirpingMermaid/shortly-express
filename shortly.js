@@ -2,6 +2,7 @@ var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
+var session = require('express-session');
 
 
 var db = require('./app/config');
@@ -10,6 +11,16 @@ var User = require('./app/models/user');
 var Links = require('./app/collections/links');
 var Link = require('./app/models/link');
 var Click = require('./app/models/click');
+
+var restrict = function (req, res, next) {
+  if (req.session.user) {
+    next();
+  } else {
+    req.session.error = 'Access denied!';
+    res.redirect('/login');
+  }
+};
+
 
 var app = express();
 
@@ -21,22 +32,33 @@ app.use(bodyParser.json());
 // Parse forms (signup/login)
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
-
+app.use(session({
+  secret: 'keyboard cat',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: true }
+}));
 
 app.get('/', 
 function(req, res) {
-  res.render('index');
+  res.redirect('/login');
+  //res.render('index');
 });
 
 app.get('/create', 
 function(req, res) {
-  res.render('index');
+  //if a user tries to create a link and is not signed in, redirect to /login
+  res.redirect('/login');
+  //res.render('index');
 });
 
 app.get('/links', 
 function(req, res) {
-  Links.reset().fetch().then(function(links) {
-    res.status(200).send(links.models);
+  //if a user tries to see all of the links and is not signed in, redirect to /login
+  restrict (req, res, function () {
+    Links.reset().fetch().then(function(links) {
+      res.status(200).send(links.models);
+    });  
   });
 });
 
@@ -76,7 +98,9 @@ function(req, res) {
 // Write your authentication routes here
 /************************************************************/
 
-
+app.get('/login', function(req, res) {
+  res.render('login');
+});
 
 /************************************************************/
 // Handle the wildcard route last - if all other routes fail
