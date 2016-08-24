@@ -1,12 +1,12 @@
 var db = require('../config');
 var bcrypt = require('bcrypt-nodejs');
-var Link = require('./link.js');
+var Link = require('./link');
 var Promise = require('bluebird');
 
 
 
 var User = db.Model.extend({
-  tablenames: 'users',
+  tableName: 'users',
   hasTimestamps: true,
   links: function() {
     return this.hasMany(Link);

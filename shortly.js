@@ -12,7 +12,9 @@ var Links = require('./app/collections/links');
 var Link = require('./app/models/link');
 var Click = require('./app/models/click');
 
+//middleware function 
 var restrict = function (req, res, next) {
+  console.log('in restrict req session user------>', req.session.user);
   if (req.session.user) {
     next();
   } else {
@@ -31,35 +33,43 @@ app.use(partials());
 app.use(bodyParser.json());
 // Parse forms (signup/login)
 app.use(bodyParser.urlencoded({ extended: true }));
+//express.static sends back any static file in the public directory
 app.use(express.static(__dirname + '/public'));
+
+// app.use(function (req, res, next) {
+//   console.log('Before', req);
+//   next();
+// });
+
 app.use(session({
   secret: 'keyboard cat',
   resave: false,
   saveUninitialized: true,
-  cookie: { secure: true }
+  cookie: {}
 }));
 
-app.get('/', 
+// app.use(function (req, res, next) {
+//   console.log('After', req);
+//   next();
+// });
+
+app.get('/', restrict,
 function(req, res) {
-  res.redirect('/login');
-  //res.render('index');
+  res.render('index');
 });
 
-app.get('/create', 
+app.get('/create', restrict, 
 function(req, res) {
   //if a user tries to create a link and is not signed in, redirect to /login
-  res.redirect('/login');
-  //res.render('index');
+  res.render('index');
 });
 
-app.get('/links', 
+app.get('/links', restrict, 
 function(req, res) {
   //if a user tries to see all of the links and is not signed in, redirect to /login
-  restrict (req, res, function () {
-    Links.reset().fetch().then(function(links) {
-      res.status(200).send(links.models);
-    });  
-  });
+  Links.reset().fetch().then(function(links) {
+    res.status(200).send(links.models);
+  });  
 });
 
 app.post('/links', 
@@ -100,6 +110,59 @@ function(req, res) {
 
 app.get('/login', function(req, res) {
   res.render('login');
+});
+
+app.post('/login', function(req, res) {
+  var username = req.body.username;
+  var password = req.body.password;
+
+  new User({'username': username, 'password': password}).fetch().then(function(found) {
+    if (found) {
+      req.session.regenerate(function() {
+        req.session.user = username;
+        console.log('in post login---------->', req.session.user);
+        res.status(200);
+        res.redirect('/');
+      });
+    } else {
+      res.redirect('login');
+    }
+  });
+});
+
+app.get('/signup', function(req, res) {
+  res.render('signup');
+});
+
+app.post('/signup', function(req, res) {
+  var username = req.body.username; //express and body parser allows this notation
+  var password = req.body.password;
+
+  new User({'username': username}).fetch().then(function(found) {
+    if (found) {
+      res.status(200);
+      res.redirect('/login');
+
+    } else {
+      //creating a new model to collection and bookshelf will create a new row to the table
+      Users.create({
+        username: username,
+        password: password
+      })
+      .then(function(newUser) {
+        req.session.regenerate(function() {
+          req.session.user = username;
+          //console.log("req session user in post req--------->", req.session.user);
+          res.status(200);
+          res.redirect('/');
+        });
+      }).catch(function(err) {
+        console.log("ERROR!!!!!", err);
+      });
+    }
+  });
+
+
 });
 
 /************************************************************/
